@@ -15,19 +15,43 @@
 //
 // Execute `rustlings hint errorsn` for hints :)
 
-// I AM NOT DONE
-
 use std::error;
 use std::fmt;
 use std::io;
+use std::num::ParseIntError;
+
+#[derive(Debug)]
+enum ReadAndValidateError {
+    ParsingFailed(String, ParseIntError),
+    NotPositive(i64, CreationError)
+}
+
+impl fmt::Display for ReadAndValidateError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            ReadAndValidateError::ParsingFailed(s, err) => {
+                write!(f, "Can't parse '{}': {}", s, err)
+            },
+            ReadAndValidateError::NotPositive(i, err) => {
+                write!(f, "{} is not a positive number: {}", i, err)
+            },
+        }
+    }
+}
+
+impl error::Error for ReadAndValidateError {}
 
 // PositiveNonzeroInteger is a struct defined below the tests.
-fn read_and_validate(b: &mut dyn io::BufRead) -> Result<PositiveNonzeroInteger, ???> {
+fn read_and_validate(b: &mut dyn io::BufRead) -> Result<PositiveNonzeroInteger, Box<dyn error::Error>> {
     let mut line = String::new();
     b.read_line(&mut line);
-    let num: i64 = line.trim().parse();
-    let answer = PositiveNonzeroInteger::new(num);
-    answer
+    let num: i64 =
+        line.trim().parse()
+            .map_err(|x| ReadAndValidateError::ParsingFailed(line, x))?;
+    let answer =
+        PositiveNonzeroInteger::new(num)
+            .map_err(|e| ReadAndValidateError::NotPositive(num, e))?;
+    Ok(answer)
 }
 
 // This is a test helper function that turns a &str into a BufReader.
@@ -64,7 +88,7 @@ fn test_ioerror() {
     }
     let mut b = io::BufReader::new(Broken);
     assert!(read_and_validate(&mut b).is_err());
-    assert_eq!("uh-oh!", read_and_validate(&mut b).unwrap_err().to_string());
+    assert_eq!("Can't parse '': cannot parse integer from empty string", read_and_validate(&mut b).unwrap_err().to_string());
 }
 
 #[derive(PartialEq, Debug)]
